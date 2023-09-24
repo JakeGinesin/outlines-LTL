@@ -11,6 +11,8 @@ from outlines.text.generate.continuation import Continuation
 from outlines.text.json_schema import build_regex_from_schema
 from outlines.text.parsing import find_partial_matches, map_partial_states_to_vocab
 
+#from ab.utils.algorithms import *
+#from ab.utils.utils import *
 
 class Regex(Continuation):
     """Represents a regex-based generation model.
@@ -31,11 +33,15 @@ class Regex(Continuation):
         vocabulary = model.tokenizer.vocabulary
         sorted_vocabulary = [
             model.tokenizer.convert_token_to_string(k)
+            # this is probably really slow..
             for k, v in sorted(vocabulary.items(), key=lambda kv: kv[1])
         ]
-
+        
         regex_pattern = interegular.parse_pattern(regex_string)
+
+        # haha so expensive! never use this! exponential complexity!
         self.regex_fsm = regex_pattern.to_fsm().reduce()
+
 
         def partial_match_filter(string, end_idx, state_seq):
             if end_idx is not None and end_idx < len(string) - 1:
@@ -51,6 +57,10 @@ class Regex(Continuation):
 
         # Check whether a terminal path (from the initial state of the FSM to
         # one of its terminal states) exists, raise an exception otherwise.
+
+        # OK in actual fucking human terms, this means given the FSM we generate from the
+        # regular expression, see if there exists a path to an acceptance state given our vocabulary
+        # this could be done way more efficiently with fuckin, linear programming, but i'm not an LLM engineer am I?
         traversed_states = set()
         queue = collections.deque([self.regex_fsm.initial])
         while queue:
@@ -75,6 +85,7 @@ class Regex(Continuation):
         self, generated_token_ids: torch.LongTensor, logits: torch.DoubleTensor
     ) -> torch.DoubleTensor:
         """Modify the next-token logits so that only integers can be generated.
+        # this returns some tensor shit that I don't understand.
 
         Parameters
         ----------
@@ -85,6 +96,11 @@ class Regex(Continuation):
 
         """
 
+        # this code is poorly annotated for someone who doesn't know 
+        # anything about LLM bullshit!
+
+
+        # 
         if len(self.pstates) == 0:
             self.pstates = [
                 ("REGEX", self.regex_fsm.initial, 0)
@@ -110,12 +126,18 @@ class Regex(Continuation):
                     assert last_fsm_state > -1
 
                     sequence = self.model.tokenizer.decode(readable_tokens)
+                    print(sequence)
 
+                    # god this is so disgusting
+                    # i do not understand this
                     ((_, state_seq),) = find_partial_matches(
                         self.regex_fsm,
                         "".join(sequence),
                         start_state=last_fsm_state,
                     )
+                    print("cringe gameplay\n")
+                    print(state_seq)
+
                     pstate = (
                         "REGEX",
                         state_seq[-1],
@@ -200,8 +222,9 @@ def float(model, max_tokens: Optional[int] = None):
         The maximum number of tokens to generate.
 
     """
-    return Regex(model, r"([+-]?((0|[1-9]+)([.][0-9]*)?)|([.][0-9]+))", max_tokens)
-
+    # but what the authors of this library don't know is that DFA construction from regex is EXPONENTIAL in complexity
+    # making this shit absolutely unusable. idiots.
+    return Regex(model, r"([+-]?((0|[1-9]+)([.][0-9]*)?)|([.][0-9]+))", max_tokens) 
 
 def choice(model, choices: List[str], max_tokens: Optional[int] = None):
     """Choose between different sequences."""

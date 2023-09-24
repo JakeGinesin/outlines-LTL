@@ -272,6 +272,15 @@ def parse_to_end(parser_state: ParserState) -> Tuple[ParserState, Set[str]]:
 def find_partial_matches(
     fsm: FSM, input_string: str, start_state: Optional[int] = None
 ) -> Set[Tuple[Optional[int], Tuple[int, ...]]]:
+    # comments from a FM person
+    # wtf
+    # this is so fucking expensive
+    # we could have done a one-time state space mapping
+    # such that we didn't have to re-search the entire goddamn graph for every token we generate
+    # but no
+    # you had to re-search the FSM every single time!
+    # I will be replacing this with something better.
+
     """Find the states in the finite state machine `fsm` that accept `input_string`.
 
     This will consider all possible states in the finite state machine (FSM)
@@ -297,6 +306,10 @@ def find_partial_matches(
     second element is the tuple of states visited during execution of the FSM
     plus the next, unvisited transition state.
 
+    fm guy comments:
+    in short, we find the next moves we could possibly make that eventually lead
+    to a viable acceptance state
+
     """
     if len(input_string) == 0 or input_string[0] not in fsm.alphabet:
         return set()
@@ -305,6 +318,8 @@ def find_partial_matches(
 
     # TODO: We could probably reuse parts of the computed paths when computing
     # results for multiple starting points.
+
+    # let me go through this and explain why it is trash
     def _partial_match(
         trans: Dict[int, int]
     ) -> Tuple[Optional[int], Optional[Tuple[int, ...]]]:

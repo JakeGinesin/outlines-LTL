@@ -182,6 +182,7 @@ def render(template: str, **values: Optional[Dict[str, Any]]) -> str:
     A string that contains the rendered template.
 
     """
+
     # Dedent, and remove extra linebreak
     cleaned_template = inspect.cleandoc(template)
 

@@ -79,6 +79,7 @@ class Sequence:
         """
         num_input_dims = token_ids.ndim
         probs = self.model(token_ids, attention_mask)
+        print("create proposal")
         probs = self.create_proposal(token_ids[:, num_prompt_tokens:], probs)
         probs = torch.nn.functional.softmax(probs, dim=-1)
 
@@ -192,6 +193,8 @@ class Sequence:
         The full sequence that contains the prompts and the generated string.
 
         """
+        # print(prompt)
+        # OK HERE IS WHERE THE PROMPT COMES IN 
         token_ids, attention_mask = self.model.tokenizer.encode(prompt)
 
         token_ids = token_ids.to(self.device)
@@ -238,6 +241,7 @@ class Sequence:
 
         if len(result) == 1:
             return result[0]
+
 
         return result
 
