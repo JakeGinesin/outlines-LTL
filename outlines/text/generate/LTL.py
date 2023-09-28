@@ -38,7 +38,10 @@ class LTL(Continuation):
         # print(self.rstr_set)
 
         self.distance_mappings = {}
+        self.cstr_buchi = []
+        self.current_state = [None] * len(ltl_lst)
 
+        c = 0
         for buchi in rstr_set:
             """
             we go through and run pre-processing on each buchi automata to properly 
@@ -83,8 +86,6 @@ class LTL(Continuation):
                     n_alphabet.add(i)
                     n_usable_transitions.append((sA, i, sB))
 
-
-
             ltl_buchi = Buchi(n_states, n_initial_state, n_acceptance_states, n_alphabet, n_usable_transitions)
 
             """
@@ -124,7 +125,46 @@ class LTL(Continuation):
                         distance[r_state] = curr_dist + 1
                         qx.append(r_state)
 
-            self.distance_mappings[buchi] = distance
+            self.distance_mappings[ltl_buchi] = distance
+            ltl_buchi.show_diagram()
+            self.cstr_buchi.append(ltl_buchi)
+            self.current_state[c] = ltl_buchi.initial_state
+
+            c+=1
+
+    # get the determined words within the language of the next state
+    def next_state(self, ltl, c_state):
+        distance = self.distance_mappings[ltl]
+
+        # if we're already in the acceptance state, we *know* by construction
+        # that we can stay in this state
+        if distance[c_state] == 0 : return (c_state, "Sigma*")
+
+        # go through all reachable states, find the state with the 
+        # lowest distance to an accepting state, and go with that
+        states = ltl.reachability_object[c_state]
+        if states == set() : return None
+        mm = float('inf')
+        cl = None
+        for state, char in states:
+            if distance[state] < mm: 
+                mm = distance[state]
+                cl = (state, char)
+
+        # if we don't have a state to transition to, sucks, we backed ourselves into 
+        # a corner and can no longer generate.
+        # additional work will have to be done to determine if we have intersecting LTL properties
+        if mm == float('inf') : return None
+
+        chars = cl[1].split(" & ")
+
+        ct = ""
+        for char in chars:
+            if char[0] == "!" : ct+=char + ","
+            else: 
+                return (cl[0], char)
+
+        return (cl[0], ct)
 
     def create_proposal(
         self, generated_token_ids: torch.LongTensor, logits: torch.DoubleTensor
@@ -139,8 +179,6 @@ class LTL(Continuation):
            be one that takes us closer to acceptance. chances are, we might miss some intersection emptiness thing
         4. limit 
         """
-
-
 
 def ltl(model, ltl_array: [], max_tokens: Optional[int] = None):
     return LTL(model, ltl_array, max_tokens)
